@@ -9,14 +9,14 @@ export default Ember.Component.extend({
   /**
    * Store the original pushState function in order to restore it on willDestroyElement.
    */
-  bbqPushState: Ember.$.bbq.pushState,
+  // bbqPushState: Ember.$.bbq.pushState,
 
   handleLoginGlobal: window.handleLogin,
 
   /* Supported Component properties */
   title: null,
   url: null,
-  spec: null,
+  spec: undefined,
   docExpansion: 'none',
   showRequestHeaders: false,
   supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
@@ -30,7 +30,7 @@ export default Ember.Component.extend({
 
   willDestroyElement() {
     // restore the original pushState function
-    Ember.$.bbq.pushState = this.get('bbqPushState');
+    // Ember.$.bbq.pushState = this.get('bbqPushState');
   },
 
 
@@ -39,59 +39,81 @@ export default Ember.Component.extend({
     let url = this.get('url') || 'http://petstore.swagger.io/v2/swagger.json';
 
     that._translate();
-
-    window.swaggerUi = new SwaggerUi({
+    const swaggerUi = SwaggerUIBundle({
       url: url,
-      spec: that.get('spec'),
+      dom_id: '#swagger-ui-container',
+      spec: this.get('spec'),
       validatorUrl: null,
-      dom_id: 'swagger-ui-container',
+      deepLinking: false,
       docExpansion: that.get('docExpansion'),
       apisSorter: 'alpha',
       showRequestHeaders: that.get('showRequestHeaders'),
       supportedSubmitMethods: that.get('supportedSubmitMethods'),
-      onComplete: this.get("onComplete") || function() {
+      presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIStandalonePreset
+      ],
+      plugins: [
+          SwaggerUIBundle.plugins.DownloadUrl
+      ],
+    })
+    swaggerUi.authActions.authorize({Authorization: {name: "Authorization", schema: {type: "apiKey", in: "header", name: "Authorization"}, value: "Bearer 333"}})
 
-        if(typeof window.initOAuth === "function") {
-          window.initOAuth({
-            clientId: "your-client-id",
-            clientSecret: "your-client-secret",
-            realm: "your-realms",
-            appName: "your-app-name",
-            scopeSeparator: ","
-          });
-        }
+    window.swaggerUi = swaggerUi
+    // window.swaggerUi = SwaggerUIBundle({
+    //   url: url,
+    //   spec: that.get('spec'),
+    //   validatorUrl: null,
+    //   dom_id: '#swagger-ui-container',
+    //   docExpansion: that.get('docExpansion'),
+    //   apisSorter: 'alpha',
+    //   deepLinking: false,
+    //   showRequestHeaders: that.get('showRequestHeaders'),
+    //   supportedSubmitMethods: that.get('supportedSubmitMethods'),
+    //   onFailure: this.get("onFailure") || function() {
+    //     console.log('Failed to load SwaggerUi');
+    //   }
+    // });
 
-        that._translate();
-        that._addApiKeyAuthorization(that);
-        that._highlight();
-        that._relativeUrls();
-
-        // we need to no-op a jquery plugin function that routes us to index if not overridden.
-        Ember.$.bbq.pushState = function() { };
-
-        // move the generated dialog element to the component's element
-        window.handleLogin = function() {
-          that.$('.api-popup-dialog').remove();
-          that.handleLoginGlobal();
-          Ember.run.later(function() {
-            let dialog = Ember.$('.api-popup-dialog');
-            that.$().append(dialog);
-            dialog.css('display', 'block');
-          }, 500);
-        };
-
-        // add change listener to apiKey input.
-        let input = that.$('#input_apiKey');
-        if (input) {
-          input.change(that._addApiKeyAuthorization(that));
-        }
-      },
-      onFailure: this.get("onFailure") || function() {
-        console.log('Failed to load SwaggerUi');
+    if (!this.get('onComplete')){
+      console.log('no complete')
+      if(typeof window.swaggerUi.initOAuth === "function") {
+        window.swaggerUi.initOAuth({
+          clientId: "your-client-id",
+          clientSecret: "your-client-secret",
+          realm: "your-realms",
+          appName: "your-app-name",
+          scopeSeparator: ","
+        });
       }
-    });
-
-    window.swaggerUi.load();
+  
+      // that._translate();
+      this._addApiKeyAuthorization(this);
+      // that._highlight();
+      that._relativeUrls();
+  
+      // // we need to no-op a jquery plugin function that routes us to index if not overridden.
+      // Ember.$.bbq.pushState = function() { };
+  
+      // move the generated dialog element to the component's element
+      window.handleLogin = function() {
+        that.$('.api-popup-dialog').remove();
+        that.handleLoginGlobal();
+        Ember.run.later(function() {
+          let dialog = Ember.$('.api-popup-dialog');
+          that.$().append(dialog);
+          dialog.css('display', 'block');
+        }, 500);
+      };
+  
+      // add change listener to apiKey input.
+      let input = that.$('#input_apiKey');
+      if (input) {
+        input.change(that._addApiKeyAuthorization(that));
+      }
+    } else {
+      this.get('onComplete')(window.swaggerUi.specSelectors)
+    }
   },
 
 
@@ -109,8 +131,9 @@ export default Ember.Component.extend({
         Ember.$('#input_apiKey').val(authz.value);
       }
 
-      var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization(authz.name, authz.value, authz.type);
-      window.swaggerUi.api.clientAuthorizations.add(authz.name, apiKeyAuth);
+      // var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization(authz.name, authz.value, authz.type);
+      // window.swaggerUi.api.clientAuthorizations.add(authz.name, apiKeyAuth);
+      window.swaggerUi.authActions.authorize({JWT: {name: 'JWT', schema: {type: authz.type, in: 'header', name: authz.name, description: ''}, value: authz.value}})
     }
   },
 
